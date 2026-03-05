@@ -1,9 +1,12 @@
+export type ColumnGroup = 'persona' | 'contatti' | 'indirizzo' | 'altro';
+
 export interface StandardColumn {
   key: string;
   label: string;
   required: boolean;
   type: 'string' | 'email' | 'phone' | 'number' | 'date';
   description?: string;
+  group: ColumnGroup;
 }
 
 export interface ParsedFile {
