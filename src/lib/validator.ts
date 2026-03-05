@@ -141,8 +141,9 @@ export function validateAndTransform(
         }
       }
     }
-    if (mapped.postal_code && mapped.postal_code.trim() && !validateCap(mapped.postal_code)) {
-      reasons.push(`CAP non valido: "${mapped.postal_code}"`);
+    // CAP: normalize best-effort, never reject
+    if (mapped.postal_code && mapped.postal_code.trim()) {
+      mapped.postal_code = parseCap(mapped.postal_code);
     }
 
     // Check if row has any meaningful data
