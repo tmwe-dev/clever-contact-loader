@@ -129,17 +129,9 @@ export function validateAndTransform(
     if (mapped.email && mapped.email.trim() && !validateEmail(mapped.email)) {
       reasons.push(`Email non valida: "${mapped.email}"`);
     }
-    // Always try to normalize phone before validating
+    // Phone: normalize best-effort, NEVER reject
     if (mapped.phone && mapped.phone.trim()) {
       mapped.phone = normalizePhone(mapped.phone);
-      if (!validatePhone(mapped.phone)) {
-        // Accept it anyway with a best-effort normalization — don't reject
-        // Only reject if it's completely garbage (less than 6 digits)
-        const digitCount = mapped.phone.replace(/\D/g, '').length;
-        if (digitCount < 6) {
-          reasons.push(`Telefono non valido: "${mapped.phone}" (troppo corto)`);
-        }
-      }
     }
     // CAP: normalize best-effort, never reject
     if (mapped.postal_code && mapped.postal_code.trim()) {
