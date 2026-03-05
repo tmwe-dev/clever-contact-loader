@@ -1,8 +1,9 @@
 import { ColumnMapping, ParsedFile, TransformationType, ColumnGroup } from '@/lib/types';
 import { STANDARD_COLUMNS, GROUP_META, GROUP_ORDER } from '@/lib/standardSchema';
 import { autoMapColumns } from '@/lib/heuristicMapper';
+import { MappingTemplate } from '@/lib/mappingTemplates';
 import { motion } from 'framer-motion';
-import { Wand2, AlertTriangle, CheckCircle2, HelpCircle, X, Info, ChevronDown } from 'lucide-react';
+import { Wand2, AlertTriangle, CheckCircle2, HelpCircle, X, Info, ChevronDown, Save, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +18,8 @@ interface SchemaMappingStepProps {
   onRequiredFieldsChange: (fields: string[]) => void;
   onConfirm: () => void;
   onBack: () => void;
+  suggestedTemplate?: MappingTemplate | null;
+  onSaveTemplate?: () => void;
 }
 
 const TRANSFORMATIONS: { value: TransformationType; label: string }[] = [
@@ -175,8 +178,11 @@ export default function SchemaMappingStep({
   onRequiredFieldsChange,
   onConfirm,
   onBack,
+  suggestedTemplate,
+  onSaveTemplate,
 }: SchemaMappingStepProps) {
   const [showSchema, setShowSchema] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const handleAutoMap = () => {
     const auto = autoMapColumns(parsedFile.headers, parsedFile.sampleRows);
@@ -253,6 +259,24 @@ export default function SchemaMappingStep({
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Template banner */}
+      {suggestedTemplate && (
+        <div className="rounded-lg bg-success/10 border border-success/30 p-4 flex items-center gap-3">
+          <CheckCircle2 className="h-5 w-5 text-success shrink-0" />
+          <div className="flex-1 text-sm">
+            <p className="font-medium text-foreground">Configurazione riconosciuta!</p>
+            <p className="text-muted-foreground">
+              Le colonne di questo file corrispondono al tracciato "<strong>{suggestedTemplate.name}</strong>" già utilizzato in precedenza.
+              Il mapping è stato applicato automaticamente.
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={handleAutoMap} className="shrink-0">
+            <RotateCcw className="h-3 w-3 mr-1" />
+            Rimappa
+          </Button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -261,10 +285,12 @@ export default function SchemaMappingStep({
             Associa le colonne del tuo file ai campi della rubrica
           </p>
         </div>
-        <Button onClick={handleAutoMap} className="shrink-0">
-          <Wand2 className="h-4 w-4" />
-          Auto-mappa
-        </Button>
+        <div className="flex gap-2 shrink-0">
+          <Button onClick={handleAutoMap} variant="outline">
+            <Wand2 className="h-4 w-4" />
+            Auto-mappa
+          </Button>
+        </div>
       </div>
 
       {/* Instructions */}
@@ -406,13 +432,21 @@ export default function SchemaMappingStep({
         <Button variant="outline" onClick={onBack}>
           ← Indietro
         </Button>
-        <Button
-          onClick={onConfirm}
-          disabled={mappings.filter(m => m.targetColumn).length === 0}
-          className="bg-accent text-accent-foreground hover:bg-accent/90"
-        >
-          Valida e Importa →
-        </Button>
+        <div className="flex gap-2">
+          {onSaveTemplate && (
+            <Button variant="outline" onClick={() => { onSaveTemplate(); setSaved(true); }} disabled={mappings.filter(m => m.targetColumn).length === 0}>
+              <Save className="h-4 w-4" />
+              {saved ? 'Salvato ✓' : 'Salva configurazione'}
+            </Button>
+          )}
+          <Button
+            onClick={() => { onSaveTemplate?.(); onConfirm(); }}
+            disabled={mappings.filter(m => m.targetColumn).length === 0}
+            className="bg-accent text-accent-foreground hover:bg-accent/90"
+          >
+            Valida e Importa →
+          </Button>
+        </div>
       </div>
     </div>
   );

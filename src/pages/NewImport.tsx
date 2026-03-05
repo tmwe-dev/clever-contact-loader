@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { parseFile } from '@/lib/fileParser';
 import { autoMapColumns } from '@/lib/heuristicMapper';
+import { findMatchingTemplate, applyTemplate, saveMappingTemplate, useTemplate, MappingTemplate } from '@/lib/mappingTemplates';
 import { ParsedFile, ParsingOptions, ColumnMapping, ValidationResult } from '@/lib/types';
 import ImportStepper from '@/components/import/ImportStepper';
 import FileUploadStep from '@/components/import/FileUploadStep';
@@ -26,6 +27,7 @@ interface ImportJobLocal {
   mappings: ColumnMapping[];
   requiredFields: string[];
   result: ValidationResult | null;
+  suggestedTemplate: MappingTemplate | null;
 }
 
 export default function NewImport() {
@@ -38,7 +40,18 @@ export default function NewImport() {
     setIsLoading(true);
     try {
       const { parsed, options } = await parseFile(file);
-      const mappings = autoMapColumns(parsed.headers, parsed.sampleRows);
+
+      // Check for a saved template matching these headers
+      const template = findMatchingTemplate(parsed.headers);
+      let mappings: ColumnMapping[];
+      let requiredFields: string[] = [];
+
+      if (template) {
+        mappings = applyTemplate(template, parsed.headers);
+        requiredFields = [...template.requiredFields];
+      } else {
+        mappings = autoMapColumns(parsed.headers, parsed.sampleRows);
+      }
 
       setJob({
         id: Math.random().toString(36).slice(2, 10),
@@ -47,8 +60,9 @@ export default function NewImport() {
         parsedFile: parsed,
         parsingOptions: options,
         mappings,
-        requiredFields: [],
+        requiredFields,
         result: null,
+        suggestedTemplate: template,
       });
       setStep(1);
     } catch (err: any) {
@@ -57,19 +71,33 @@ export default function NewImport() {
       setIsLoading(false);
     }
   }, []);
-
   const handleReparse = useCallback(async () => {
     if (!job) return;
     setIsLoading(true);
     try {
       const { parsed, options } = await parseFile(job.file, job.parsingOptions || undefined);
-      const mappings = autoMapColumns(parsed.headers, parsed.sampleRows);
-      setJob(prev => prev ? { ...prev, parsedFile: parsed, parsingOptions: options, mappings } : null);
+      const template = findMatchingTemplate(parsed.headers);
+      let mappings: ColumnMapping[];
+      let requiredFields = job.requiredFields;
+      if (template) {
+        mappings = applyTemplate(template, parsed.headers);
+        requiredFields = [...template.requiredFields];
+      } else {
+        mappings = autoMapColumns(parsed.headers, parsed.sampleRows);
+      }
+      setJob(prev => prev ? { ...prev, parsedFile: parsed, parsingOptions: options, mappings, requiredFields, suggestedTemplate: template } : null);
     } catch (err: any) {
       alert('Errore nel re-parsing: ' + (err?.message || 'Errore sconosciuto'));
     } finally {
       setIsLoading(false);
     }
+  }, [job]);
+
+  const handleSaveTemplate = useCallback(() => {
+    if (!job?.parsedFile) return;
+    const name = job.filename.replace(/\.[^.]+$/, '');
+    saveMappingTemplate(name, job.parsedFile.headers, job.mappings, job.requiredFields);
+    if (job.suggestedTemplate) useTemplate(job.suggestedTemplate.id);
   }, [job]);
 
   const handleNewImport = () => {
@@ -151,6 +179,8 @@ export default function NewImport() {
                   onRequiredFieldsChange={(f) => setJob(prev => prev ? { ...prev, requiredFields: f } : null)}
                   onConfirm={() => setStep(3)}
                   onBack={() => setStep(1)}
+                  suggestedTemplate={job.suggestedTemplate}
+                  onSaveTemplate={handleSaveTemplate}
                 />
               </motion.div>
             )}
